@@ -25,7 +25,7 @@ clear;
 close all;
 %INPUT PARAMETERS
 %#thermodynamics:
-m_dt = 0.0067;  % mass flow rate m [kg/s]
+m_dt = 0.006;  % mass flow rate m [kg/s]
 Q_46 = 000;        %heat input [W]
 TIT = 1200;     % Stator inlet Temperature TIT [K]
 P_1t = 2.5e5;   % Stator total inlet pressure P_1t [Pa]
@@ -35,6 +35,7 @@ q_46 = Q_46/m_dt;        % Heat flux rotor q_r  [J/kg]
 f = 0.01;        % fuel to air ratio [];
 xi_s = 0.967;   % Nozzle total pressure loss factor stator according to Wasserbauer, Glassman, "FORTRAN PROGRAM FOR PREDICTING OFF-DESIGN PERFORMANCE OF RADIAL-INFLOW TURBINES", p.3
 y_plus = 1;    %CFD y plus wall spacing calculation
+alpha_1 = 40/pi*180;    %stator inlet flow angle
 %mean dynamic viscosity:
 mu_4 = 48e-6;                           %dynamic viscosity approximation inlet [Pa s]
 mu_6 = 43e-6;                           %dynamic viscosity approximation outlet [Pa s]
@@ -59,7 +60,7 @@ e_rad = 0.2e-3;    % tip clearance radial [m]
 e = (e_ax+e_rad)/2; %mean tip clearance [m]
 k = 0.03e-3;          % absolute surface roughness k [m]
 k_bl = 0.98;    %boundary layer blockage parameter
-beta_4b = 20/180*pi;    % blade angle at inlet #!!! must be positive!
+beta_4b = 0/180*pi;    % blade angle at inlet #!!! must be positive!
 if beta_4b<0
     error('inlet blade angle is negative!')
 end
@@ -68,7 +69,7 @@ end
 rpm = 500000;   % maximum rotational speed rpm_max  [1/min]
 omega=rpm/60*2*pi;
 Xi = 1;         % rotor inlet/outlet meridional velocity ratio
-tb_r = 0.1e-3;          % rotor blade thickness t_b [m] (uniform)
+tb_r = 0.3e-3;          % rotor blade thickness t_b [m] (uniform)
 r_fbr = 0.1e-3;         %rotor blade root fillet radius
 
 
@@ -85,7 +86,7 @@ r_6hmin = 1.5e-3;     % minimum hub outlet radius r_6h_min [m]
             %performance of radial inflow turbines in Organic Rankine
             %Cycles." (2014)., p. 77, with reference to  Moustapha, Hany,
             %et al. "Axial and radial turbines"
-epsilon_max = 0.85;  % maximum radius ratio r6s/r4
+epsilon_max = 0.95;  % maximum radius ratio r6s/r4
 maximum_iterations = 100;    %maximum design iterations before continuation
 
 
@@ -97,8 +98,8 @@ maximum_iterations = 100;    %maximum design iterations before continuation
 % 6 = ROTOR OUTLET
 vPsi = linspace(0.4,1.3,20);
 vPhi = linspace(0.1,0.5,20);
-vPsi = 0.8737;
-vPhi = 0.2684;
+% vPsi = 1.016;
+% vPhi = 0.2895;
 %         
 
 for i=1:length(vPsi)
@@ -120,7 +121,7 @@ for i=1:length(vPsi)
         eta_pts = 0.7;        % polytropic efficiency
         b_4 = 0.001;        %blade height rotor inlet [m]
         b_6 = b_4*3;
-        alpha_4 = 75/180*pi;    %rotor inlet total flow angle
+        alpha_4 = 75/180*pi;    %rotor outlet total flow angle
         r_4 = 0.01;         %rotor inlet radius [m]
         epsilon = epsilon_max; % initial radius ratio r6s/r4
         r_6s = r_4*epsilon;
@@ -145,8 +146,9 @@ for i=1:length(vPsi)
             %stator heat ratio at inlet is same as at outlet:
             gamma_1 = gamma_3;
             %radius nozzle trailing edge according to Watanabe, "Effect of Dimensional Parameters
-            % of Impellers on Performance Characteristics of a Radial Inflow Turbine
-            r_3 = 2*b_4*cos(alpha_4)+r_4;
+            % of Impellers on Performance Characteristics of a Radial
+            % Inflow Turbine, based on stator inlet flow angle alpha_1:
+            r_3 = 2*b_4*cos(alpha_1)+r_4;
 
             %radius of nozzle leading edge according to Glassman, “Computer Program for Design Analysis of Radial-
             %Inflow Turbines”:
@@ -475,7 +477,7 @@ for i=1:length(vPsi)
             P_6dyn = P_6t-P_6;
             P_7 = P_amb;
             P_6_new = P_7-Cp*P_6dyn;
-            P_6 = P_6_new;
+%             P_6 = P_6_new;
             %initial conditions for outlet pressure calcualtion:
             Merror = 10;
             M_7 = M_6;
@@ -570,7 +572,7 @@ for i=1:length(vPsi)
             %according to Persky, Rodney, and Emilie Sauret. "Loss models
             %for on and off-design performance of radial inflow
             %turbomachinery." Applied Thermal Engineering 150 (2019):
-            %1066-1077., n should be chosen to be 2!   
+            %1066-1077., n should be chosen to be 2 always!   
             n = 2;
             dh_til = 0.5*W_4^2.*sin(abs(i_4)).^n;
            
@@ -677,7 +679,7 @@ Re_loss_ratio = lc_passage/lc_ref;
             if lossmodel == 5
             %loss correlation 5: Rodgers, C. "Efficiency and performance
             %characteristics of radial turbines." SAE Transactions (1967): 681-692. 
-            lambda_th = dh_16sts/U_4^2;
+            lambda_th = dh_16tss/U_4^2;
             dh_blading_rodgers = (1.2*s_c_ratio-W_mR/U_4*1/lambda_th)*W_mR^2;
             dh_secondary_rodgers = W_mR^2*(0.01*2*r_4/b_4*s_c_ratio+(1-cos(alpha_6)));
             dh_tsf = dh_blading_rodgers+dh_secondary_rodgers;
@@ -731,10 +733,10 @@ Re_loss_ratio = lc_passage/lc_ref;
             [T_6ts,~,~] = isentropic_expansion (T_1t,P_1t,P_6t,f);
             %isentropic enthalpy change from total to total rotor inlet to
             %diffuser outlet:             
-            [T_7s,~,~] = isentropic_expansion (T_1t,P_1t,P_7,f);
+%             [T_7s,~,~] = isentropic_expansion (T_1t,P_1t,P_7,f);
             %isentropic enthalpy change from total to total rotor inlet to
             %diffuser outlet:             
-            [T_7ts,~,~] = isentropic_expansion (T_1t,P_1t,P_7t,f);
+%             [T_7ts,~,~] = isentropic_expansion (T_1t,P_1t,P_7t,f);
             
             %changes in total enthalpy:
             %enthalpy rotor inlet:
@@ -752,13 +754,13 @@ Re_loss_ratio = lc_passage/lc_ref;
             %static enthalpy at isentropic rotor outlet:
             h_6s = enthalpy_abs_gas(T_6s, f);
             %total enthalpy at diffuser outlet:
-            h_7t = enthalpy_abs_gas(T_7t,f);
+%             h_7t = enthalpy_abs_gas(T_7t,f);
             %static enthalpy of isentropic comparison process at diffuser
             %outlet:
-            h_7s = enthalpy_abs_gas(T_7s,f);
+%             h_7s = enthalpy_abs_gas(T_7s,f);
             %total enthalpy of isentropic comparison process at diffuser
             %outlet:
-            h_7ts = enthalpy_abs_gas(T_7ts,f);
+%             h_7ts = enthalpy_abs_gas(T_7ts,f);
             
             %rotor total to total enthalpy difference:
             dh_46tt = h_4t-h_6t;
@@ -767,19 +769,21 @@ Re_loss_ratio = lc_passage/lc_ref;
             dh_16tt = h_1t-h_6t;
             %isentropic enthalpy difference from nozzle (total) to rotor
             %outlet (static):
-            dh_16sts = h_1t-h_6s;            
+            dh_16tss = h_1t-h_6s;
+            %isentropic enthalpy difference from nozzle (total) to rotor
+            %outlet (total):
+            dh_16tts = h_1t-h_6ts;
             %isentropic enthalpy difference from nozzle (total) to
             %diffuser (static): 
-            dh_17tss = h_1t-h_7s;
+%             dh_17tss = h_1t-h_7s;
             %isentropic enthalpy difference from nozzle (total) to
             %diffuser (total): 
-            dh_17tts = h_1t-h_7ts;
+%             dh_17tts = h_1t-h_7ts;
             
-            eta_pts46 = w_t46q/(y_46-0.5*(C_4^2));
             eta_pts = w_t46q/(y_16-0.5*(C_1^2));
             eta_error = abs(eta_pts-eta_pts_old);
-            eta_sts = dh_46tt/dh_17tss;
-            eta_stt = dh_46tt/dh_17tts;
+            eta_sts = dh_46tt/dh_16tss;
+            eta_stt = dh_46tt/dh_16tts;
             
             %residuals calculation:
             v_res_eta_pts (iteration_index) = abs(eta_pts-eta_pts_old)/eta_pts;
@@ -832,9 +836,9 @@ Re_loss_ratio = lc_passage/lc_ref;
         v_eta_sts(i,j) = eta_sts;
         v_P_out(i,j) = w_t46q*m_dt;
         %size parameter
-        VH(i,j) = sqrt(C_m6m*A_6)/dh_16sts^0.25;
+        VH(i,j) = sqrt(C_m6m*A_6)/dh_16tss^0.25;
         %velocity for isentropic expansion:
-        spouting_velocity = sqrt(dh_16sts*2);
+        spouting_velocity = sqrt(dh_16tss*2);
         v_blade_speed_ratio(i,j) = U_4/spouting_velocity;
         v_valid_design (i,j)=valid_design;
         v_r4 (i,j) = r_4;
@@ -974,9 +978,9 @@ if size(vPsi,2)>1
     subplot(2,2,1)
     %plot contour lines with text:
     eta = v_eta_sts.*v_valid_design;
-    eta(eta==0)=nan;
+    eta(eta==0)=[];
     eta_levels = ceil(min(eta(:))*100):1:round(max(eta(:)*100));
-    h = contour(vPhi, vPsi, round(eta*100,2),eta_levels,'ShowText','on','Color','black');hold on;
+    h = contourf(vPhi, vPsi, round(eta*100,2),eta_levels,'ShowText','on','Color','black');hold on;
     title('Polytropic Total to Static Efficiency as Function of \Phi and \Psi');
     xlabel('\Psi');ylabel('\Phi');
     v_invalid_design = ~v_valid_design;

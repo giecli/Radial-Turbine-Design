@@ -60,7 +60,7 @@ e_rad = 0.2e-3;    % tip clearance radial [m]
 e = (e_ax+e_rad)/2; %mean tip clearance [m]
 k = 0.03e-3;          % absolute surface roughness k [m]
 k_bl = 0.98;    %boundary layer blockage parameter
-beta_4b = 20/180*pi;    % blade angle at inlet #!!! must be positive!
+beta_4b = 0/180*pi;    % blade angle at inlet #!!! must be positive!
 if beta_4b<0
     error('inlet blade angle is negative!')
 end
@@ -74,7 +74,7 @@ r_fbr = 0.1e-3;         %rotor blade root fillet radius
 
 
 %CONSTRAINTS
-beta_6m_max=-90/180*pi;     % outlet maximum blade angle [°]
+beta_6m_max=-50/180*pi;     % outlet maximum blade angle [°]
 sigma_y=700;        % yield stress sigma_y  [MPa]
 r_6hmin = 1.5e-3;     % minimum hub outlet radius r_6h_min [m]
 %maximum radius ratio r6s/r4 -> it is important to constrain to keep
@@ -86,7 +86,7 @@ r_6hmin = 1.5e-3;     % minimum hub outlet radius r_6h_min [m]
             %performance of radial inflow turbines in Organic Rankine
             %Cycles." (2014)., p. 77, with reference to  Moustapha, Hany,
             %et al. "Axial and radial turbines"
-epsilon_max = 0.85;  % maximum radius ratio r6s/r4
+epsilon_max = 0.95;  % maximum radius ratio r6s/r4
 maximum_iterations = 100;    %maximum design iterations before continuation
 
 
@@ -98,8 +98,8 @@ maximum_iterations = 100;    %maximum design iterations before continuation
 % 6 = ROTOR OUTLET
 vPsi = linspace(0.4,1.3,20);
 vPhi = linspace(0.1,0.5,20);
-vPsi = 1.016;
-vPhi = 0.2895;
+% vPsi = 1.016;
+% vPhi = 0.2895;
 %         
 
 for i=1:length(vPsi)
@@ -819,7 +819,9 @@ Re_loss_ratio = lc_passage/lc_ref;
                 disp(['Error: Iteration index exceeded at Psi = ' num2str(Psi) ' Phi = ' num2str(Phi)]);
                 disp(['eta error: ' num2str(eta_error*100) ' %']);
                 disp(['calculated eta_pts = ' num2str(eta_pts*100) ' %']);
+                if eta_error*100>10
                 valid_design = 0;
+                end
                 break;
             end
             
@@ -980,7 +982,7 @@ if size(vPsi,2)>1
     eta = v_eta_sts.*v_valid_design;
     eta(eta==0)=nan;
     eta_levels = ceil(min(eta(:))*100):1:round(max(eta(:)*100));
-    h = contour(vPhi, vPsi, round(eta*100,2),eta_levels,'ShowText','on','Color','black');hold on;
+    h = contourf(vPhi, vPsi, round(eta*100,2),eta_levels,'ShowText','on','Color','black');hold on;
     title('Polytropic Total to Static Efficiency as Function of \Phi and \Psi');
     xlabel('\Psi');ylabel('\Phi');
     v_invalid_design = ~v_valid_design;
