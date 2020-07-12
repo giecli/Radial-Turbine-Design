@@ -60,7 +60,7 @@ e_rad = 0.2e-3;    % tip clearance radial [m]
 e = (e_ax+e_rad)/2; %mean tip clearance [m]
 k = 0.03e-3;          % absolute surface roughness k [m]
 k_bl = 0.98;    %boundary layer blockage parameter
-beta_4b = 0/180*pi;    % blade angle at inlet #!!! must be positive!
+beta_4b = 40/180*pi;    % blade angle at inlet #!!! must be positive!
 if beta_4b<0
     error('inlet blade angle is negative!')
 end
@@ -86,7 +86,7 @@ r_6hmin = 1.5e-3;     % minimum hub outlet radius r_6h_min [m]
             %performance of radial inflow turbines in Organic Rankine
             %Cycles." (2014)., p. 77, with reference to  Moustapha, Hany,
             %et al. "Axial and radial turbines"
-epsilon_max = 0.95;  % maximum radius ratio r6s/r4
+epsilon_max = 0.85;  % maximum radius ratio r6s/r4
 maximum_iterations = 100;    %maximum design iterations before continuation
 
 
@@ -703,10 +703,10 @@ Re_loss_ratio = lc_passage/lc_ref;
             %according to Glassman, “Enhanced Analysis and User’s Manual for Radial-
             %Inflow Turbine Conceptual Design Code RTD,” -was found to be
             %errorous for high blade angles!!!!
-            delta_P_t_rel = rho_6*W_6rms^2/2*(Z_r*tb_r/(pi*(r_6s+r_6h)*cos(beta_6m)))^2;
-            dh_te = 2/(gamma_m*M_6rel^2)*delta_P_t_rel/(P_6*(1+W_6rms^2/(2*T_6*cp_m))^(gamma_m/(gamma_m-1)));
+%             delta_P_t_rel = rho_6*W_6rms^2/2*(Z_r*tb_r/(pi*(r_6s+r_6h)*cos(beta_6m)))^2;
+%             dh_te = 2/(gamma_m*M_6rel^2)*delta_P_t_rel/(P_6*(1+W_6rms^2/(2*T_6*cp_m))^(gamma_m/(gamma_m-1)));
 %Baines Correlation:
-%             dh_te = 0.5*C_6^2*0.2*tb_r/o_6;
+            dh_te = 0.5*C_6^2*0.2*tb_r/o_6;
 
 %########################## Kinetic Energy Exit Losses ####################
             dh_tke = (1-Cp)*C_6^2/2;
@@ -819,7 +819,10 @@ Re_loss_ratio = lc_passage/lc_ref;
                 disp(['Error: Iteration index exceeded at Psi = ' num2str(Psi) ' Phi = ' num2str(Phi)]);
                 disp(['eta error: ' num2str(eta_error*100) ' %']);
                 disp(['calculated eta_pts = ' num2str(eta_pts*100) ' %']);
-                if eta_error*100>10
+                %make design invalid only if the efficiency residual is
+                %more than 5% (this way, avoid "white spots" in contour
+                %plot):
+                if eta_error*100>5
                 valid_design = 0;
                 end
                 break;
@@ -856,6 +859,8 @@ Re_loss_ratio = lc_passage/lc_ref;
         v_beta_6m (i,j) = beta_6m/pi*180;
 % % % % % % % % %         v_beta_6bs(i_r,j_c)=beta_6bs/pi*180;
         v_alpha_4 (i,j) = alpha_4/pi*180;
+        v_beta_4(i,j)=beta_4/pi*180;
+        v_i_4 (i,j) = i_4/pi*180;  %incidence with respect to optimum flow angle
         v_Z_r(i,j)=Z_r;
         v_epsilon_rms(i,j)=epsilon_rms;
         v_s (i,j) = s;  %blade solidity
@@ -984,7 +989,7 @@ if size(vPsi,2)>1
     eta_levels = ceil(min(eta(:))*100):1:round(max(eta(:)*100));
     h = contourf(vPhi, vPsi, round(eta*100,2),eta_levels,'ShowText','on','Color','black');hold on;
     title('Polytropic Total to Static Efficiency as Function of \Phi and \Psi');
-    xlabel('\Psi');ylabel('\Phi');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
     v_invalid_design = ~v_valid_design;
     Psiinvalid = v_invalid_design.*vPsi'; Psiinvalid(Psiinvalid==0)=[];
     Phiinvalid = v_invalid_design.*vPhi; Phiinvalid(Phiinvalid==0)=[];
@@ -992,29 +997,88 @@ if size(vPsi,2)>1
     [k,av] = boundary(P);
     
     subplot(2,2,2)
-    loss_levels = 0:5:100;
-    %plot relative amount of tip clearance losses as function of Psi and Phi:
-    tc_rel = v_loss_rel(:,:,4).*v_valid_design;
-    tc_rel(tc_rel==0)=nan;
-    h = contour(vPsi, vPhi, round(tc_rel*100,2)',loss_levels,'ShowText','on','Color','black');hold on;
-    title('Losses: Tip Clearance Losses (Relative)');
-    xlabel('\Psi');ylabel('\Phi');
+    %plot absolute rotor inlet flow angle
+    v_alpha_4 = v_alpha_4.*v_valid_design;
+    v_alpha_4(v_alpha_4==0)=nan;
+    h = contourf(vPhi, vPsi, v_alpha_4,'ShowText','on','Color','black');hold on;
+    title('Rotor Inlet Absolute Flow Angle \alpha_4');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
     
     subplot(2,2,3)
-    %plot relative amount of secondary flow losses as function of Psi and Phi:
-    sec_rel = v_loss_rel(:,:,3).*v_valid_design;
-    sec_rel(sec_rel==0)=nan;
-    h = contour(vPsi, vPhi, round(sec_rel*100,2)',loss_levels,'ShowText','on','Color','black');hold on;
-    title('Losses: Secondary Flow (Relative)');
-    xlabel('\Psi');ylabel('\Phi');
+    %plot relative Rotor Inlet Flow angle:
+    v_beta_4 = v_beta_4.*v_valid_design;
+    v_beta_4(v_beta_4==0)=nan;
+    h = contourf(vPhi, vPsi, v_beta_4,'ShowText','on','Color','black');hold on;
+    title('Inlet Relative Flow Angle \beta_4');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
+
     
     subplot(2,2,4)
     %plot relative amount of exit kinetic flow losses as function of Psi and Phi:
-    sec_rel = v_loss_rel(:,:,6).*v_valid_design;
+    v_i_4=v_i_4.*v_valid_design;
+    v_i_4(v_i_4==0)=nan;
+    h = contourf(vPhi, vPsi, v_i_4,'ShowText','on','Color','black');hold on;
+    title('Difference to Optimum Flow Angle (Stanitz)');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
+    
+    %-------------------Losses------------------------------------
+    figure(2)
+    %Tip Clearance Losses
+    %plot relative amount of tip clearance losses as function of Psi and Phi:
+    tc_rel = v_loss_rel(:,:,4).*v_valid_design;
+    tc_rel(tc_rel==0)=nan;
+    subplot(3,2,1)
+    h = contourf(vPhi, vPsi, tc_rel*100,'ShowText','on','Color','black');hold on;
+    title('Tip Clearance Losses [%]');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
+    
+    
+    %Secondary Flow Losses
+    %plot relative amount of secondary flow losses as function of Psi and Phi:
+    sec_rel = v_loss_rel(:,:,3).*v_valid_design;
     sec_rel(sec_rel==0)=nan;
-    h = contour(vPsi, vPhi, (sec_rel*100)',loss_levels,'ShowText','on','Color','black');hold on;
-    title('Losses: Kinetic Exit Energy (Relative)');
-    xlabel('\Psi');ylabel('\Phi');
+    subplot(3,2,2)
+    h = contourf(vPhi, vPsi, sec_rel*100,'ShowText','on','Color','black');hold on;
+    title('Secondary Flow Losses [%]');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
+    
+    %Kinetic Exit Energy Losses
+    %plot relative amount of exit kinetic flow losses as function of Psi and Phi:
+    kin_rel = v_loss_rel(:,:,6).*v_valid_design;
+    kin_rel(kin_rel==0)=nan;
+    subplot(3,2,3)
+    h = contourf(vPhi, vPsi, kin_rel*100,'ShowText','on','Color','black');hold on;
+    title('Kinetic Exit Energy Losses [%]');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
+    
+    %Incidence Losses
+    %plot relative amount of incidence losses as function of Psi and Phi:
+    inc_rel = v_loss_rel(:,:,1).*v_valid_design;
+    inc_rel(inc_rel==0)=nan;
+    subplot(3,2,4)
+    h = contourf(vPhi, vPsi, inc_rel*100,'ShowText','on','Color','black');hold on;
+    title('Incidence Losses [%]');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
+    
+    
+    %Friction Losses
+    %plot relative amount of friction losses as function of Psi and Phi:
+    fr_rel = v_loss_rel(:,:,2).*v_valid_design;
+    fr_rel(fr_rel==0)=nan;
+    subplot(3,2,5)
+    h = contourf(vPhi, vPsi, fr_rel*100,'ShowText','on','Color','black');hold on;
+    title('Reynolds Number Dependent Losses (Friction) [%]');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
+    
+    %Trailing Edge Losses
+    %plot relative amount of trailing edge losses as function of Psi and
+    %Phi:
+    te_rel = v_loss_rel(:,:,5).*v_valid_design;
+    te_rel(te_rel==0)=nan;
+    subplot(3,2,6)
+    h = contourf(vPhi, vPsi, te_rel*100,'ShowText','on','Color','black');hold on;
+    title('Trailing Edge Losses [%]');
+    xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
     
     %------------------Geometry------------------------------------
     figure(5)
@@ -1051,6 +1115,7 @@ if size(vPsi,2)>1
     %plot blade angle at mid-span at turbine outlet
     h = contour(vPsi, vPhi, v_beta_6m',beta_levels,'ShowText','on','Color','black');hold on;
     title('Geometry: blade outlet angle [°]');
+    
 
 end
 
