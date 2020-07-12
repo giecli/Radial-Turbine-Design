@@ -41,7 +41,7 @@ mu_6 = 43e-6;                           %dynamic viscosity approximation outlet 
 mu_m = (mu_4+mu_6)/2;
 %calculate thermodynamic properties based on stator total inlet
 %temperature:
-[gamma,cp,R] = thermo_properties(f,TIT);
+[gamma_m,cp_m,R] = thermo_properties(f,TIT);
 
 %loss model selection:
 lossmodel = 2;
@@ -133,15 +133,17 @@ for i=1:length(vPsi)
         eta_pts_old = eta_pts;   
         r_4_old = r_4;
         beta_6m_old = 0;
-        gamma_3 = gamma;
-        gamma_4 = gamma;
-        gamma_6 = gamma;
-        cp_m = cp;
+        gamma_3 = gamma_m;
+        gamma_4 = gamma_m;
+        gamma_6 = gamma_m;
+        cp_m = cp_m;
         while(abs(eta_error)>0.00001)
 %--------------------------------------------------------------------------
 %-----------------------Thermodynamic Calculations-------------------------
 %--------------------------------------------------------------------------
-%######################## STATOR ##########################################          
+%######################## STATOR ##########################################   
+            %stator heat ratio at inlet is same as at outlet:
+            gamma_1 = gamma_3;
             %radius nozzle trailing edge according to Watanabe, "Effect of Dimensional Parameters
             % of Impellers on Performance Characteristics of a Radial Inflow Turbine
             r_3 = 2*b_4*cos(alpha_4)+r_4;
@@ -149,7 +151,7 @@ for i=1:length(vPsi)
             %radius of nozzle leading edge according to Glassman, “Computer Program for Design Analysis of Radial-
             %Inflow Turbines”:
             r_1 = r_3*1.25;            
-           
+            A_1_eff = r_1*2*pi*b_4*k_bl;
             %stator chord length approximation by assuming total outlet flow angle
             %= balde angle:
             %start point of guide vane camber line: find cross section of line with
@@ -177,8 +179,27 @@ for i=1:length(vPsi)
             
             %total inlet temperature is T_1t:
             T_1t = TIT;
+            %iterative calculation of stator inlet conditions:
+            M_1 = M_4; M_1old = M_4; Merror = 1;
+            if iteration_index==1
+            P_1 = P_1t*(1+(gamma_1-1)/2*M_1^2)^(-gamma_1/(gamma_1-1));
+            T_1 = T_1t*(1+(gamma_1-1)/2*M_1^2)^(-1);
+            rho_1 = P_1/(R*T_1);
+            C_1 = m_dt/(rho_1*A_1_eff);
+            else 
+              while Merror >0.01
+                    P_1 = P_1t*(1+(gamma_1-1)/2*M_1^2)^(-gamma_1/(gamma_1-1));
+                    T_1 = T_1t*(1+(gamma_1-1)/2*M_1^2)^(-1);
+                    rho_1 = P_1/(R*T_1);
+                    C_1 = m_dt/(rho_1*A_1_eff);
+                    M_1 = C_1/sqrt(gamma_1*R*T_1);
+                    Merror = abs(M_1-M_1old);
+                    M_1old = M_1;
+                end
+            end
+%             
             %stator outlet total temperature and pressure:
-            T_3t = TIT-q_13/cp;
+            T_3t = TIT-q_13/cp_m;
             %total outlet pressure based on total pressure loss coefficient
             %as reported by Wasserbauer, Glassmann, "FORTRAN PROGRAM FOR
             %PREDICTING OFF-DESIGN PERFORMANCE OF RADIAL-INFLOW TURBINES":
@@ -212,13 +233,15 @@ for i=1:length(vPsi)
             %resulting inlet velocity:
             C_4 = M_4*sqrt(gamma_4*R*T_4);
             %pressure changing work - initial condition:
-            m = gamma_4/((gamma_4-1)*eta_pts);
+            m_46 = gamma_4/((gamma_4-1)*eta_pts);
             pi_46 = P_6/P_4;
+            pi_16 = P_6/P_1;
             %in the first iteration, assume work output of ideal reference
             %process according to specified initial polytropic efficiency
             %(initially, diabatic effect is not considered):
             if iteration_index ==1
-                y_46 = polytropic_work(m,T_4,pi_46,R);
+                y_46 = polytropic_work(m_46,T_4,pi_46,R);
+                y_16 = polytropic_work(m_46,T_1,pi_16,R);
                 %resulting losses - initial condition:
                 j_46 = y_46*(eta_pts-1);
                 j_46_old = j_46;
@@ -231,22 +254,25 @@ for i=1:length(vPsi)
                 while y_error > 1&sum1<whilelimit   %maximum specific work output error: 1J/kg
                     y_46_old = y_46;                    
                     %polytropic ratio for diabatic process:
-                    nu = 1+(q_46+j_46)/y_46_old;
-                    m = gamma/((gamma-1)*nu);
-                    y_46 = polytropic_work(m,T_4,pi_46,R);
+                    nu_46 = 1+(q_46+j_46)/y_46_old;
+                    m_46 = gamma_m/((gamma_m-1)*nu_46);
+                    y_46 = polytropic_work(m_46,T_4,pi_46,R);
+                    nu_16 = 1+(q_13+q_46+j_46)/y_46_old;
+                    m_16 = gamma_m/((gamma_m-1)*nu_16);
+                    y_16 = polytropic_work(m_16,T_1,pi_16,R);
                     y_error = abs(y_46_old-y_46);
                     sum1 = sum1+1;
                 end
                 sum1 = 0;
             end
-%             nu
+ 
             %iterative calculation of outlet conditions:
             c_error = 10;
             sum1=0;
             while c_error>1 %maximum velocity error 1 m/s
                 C_6_old = C_6;
-                T_6t = T_4t + (q_46 + j_46+y_46+0.5*(C_6^2-C_4^2))/cp;
-                T_6s = T_4t + (y_46-0.5*C_4^2)/cp;
+                T_6t = T_4t + (q_46 + j_46+y_46+0.5*(C_6^2-C_4^2))/cp_m;
+                T_6s = T_4t + (y_46-0.5*C_4^2)/cp_m;
                 T_6 = T_6t*(1+(gamma_6-1)/2*M_6^2)^-1;
                 C_6 = M_6*sqrt(gamma_6*R*T_6);
                 c_error = abs(C_6-C_6_old);
@@ -266,20 +292,11 @@ for i=1:length(vPsi)
             %temperature:
             [gamma_4,cp_4,R] = thermo_properties(f,T_4);
             [gamma_6,cp_6,R] = thermo_properties(f,T_6);
-            [cp, gamma, R] = cp_mean(T_4, T_6, f);
             mu_4 = mu_of_t(T_4);
             mu_6 = mu_of_t(T_6);
             mu_m = (mu_4+mu_6)/2;
 
-       
-            
-            %isentropic comparison process (only valid for adiabatic
-            %analysis) from total to static
-            T_6s = T_1t*(P_6/P_1t)^((gamma-1)/gamma);
-            T_6ts = T_1t*(P_6t/P_1t)^((gamma-1)/gamma);
 
-            dh_46sts = cp*(T_1t-T_6s);
-            dh_46stt = cp*(T_1t-T_6ts);
 %--------------------------------------------------------------------------
 %-----------------------Stage Design---------------------------------------
 %--------------------------------------------------------------------------
@@ -310,11 +327,11 @@ for i=1:length(vPsi)
             alpha_4 = atan(C_u4/C_m4);
             %inlet conditions:
             C_4 = sqrt(C_m4^2+C_u4^2);
-            M_4 = C_4/(sqrt(gamma*R*T_4));
+            M_4 = C_4/(sqrt(gamma_m*R*T_4));
 
             %inlet static conditions:
-            P_4 = P_4t*(1+(gamma-1)/2*M_4^2)^(-gamma/(gamma-1));
-            T_4 = T_4t*(1+(gamma-1)/2*M_4^2)^-1;
+            P_4 = P_4t*(1+(gamma_m-1)/2*M_4^2)^(-gamma_m/(gamma_m-1));
+            T_4 = T_4t*(1+(gamma_m-1)/2*M_4^2)^-1;
             rho_4 = P_4/(R*T_4);
             rho_4t = P_4t/(R*T_4t);
             %calculation of inlet blade height:
@@ -326,9 +343,9 @@ for i=1:length(vPsi)
             W_m4 = C_m4;
             W_u4 = W_m4*tan(beta_4);
             W_4 = sqrt(W_u4^2+C_m4^2);
-            M_4rel = W_4/sqrt(gamma*R*T_4);
-            T_4trel = T_4+W_4^2/(2*cp);
-            P_4trel = P_4*(T_4trel/T_4)^(gamma/(gamma-1));
+            M_4rel = W_4/sqrt(gamma_m*R*T_4);
+            T_4trel = T_4+W_4^2/(2*cp_m);
+            P_4trel = P_4*(T_4trel/T_4)^(gamma_m/(gamma_m-1));
             
             
             %iteration for outlet area of the turbine, assuming
@@ -371,7 +388,7 @@ for i=1:length(vPsi)
             U_6s = omega*r_6s;
             %outlet velocities (total):
             C_6 = sqrt(C_m6m^2+C_u6m^2);
-            M_6 = C_6/(sqrt(gamma*R*T_6));
+            M_6 = C_6/(sqrt(gamma_m*R*T_6));
             
             %calculating beta angles:
             beta_6m = sign(C_u6m-U_6m)*atan((U_6m-C_u6m)/W_m6m);
@@ -404,9 +421,9 @@ for i=1:length(vPsi)
             %assuming root mean square velocity as outlet velocity:
             W_6 = W_6rms;
             
-            M_6rel = W_6/sqrt(gamma*R*T_6);
-            T_6trel = T_6+W_6^2/(2*cp);
-            P_6trel = P_6*(T_6trel/T_6)^(gamma/(gamma-1));
+            M_6rel = W_6/sqrt(gamma_m*R*T_6);
+            T_6trel = T_6+W_6^2/(2*cp_m);
+            P_6trel = P_6*(T_6trel/T_6)^(gamma_m/(gamma_m-1));
             
             %_____________________________________________________________
             %if blade angle exceeds maximum blade angle, set new flow angle
@@ -471,7 +488,9 @@ for i=1:length(vPsi)
                     M_7 = C_7/sqrt(gamma_6*R*T_7);
                     Merror = abs(M_7-M_7old);
                     M_7old = M_7;
-                end
+                 end
+                P_7t = P_7+rho_7/2*C_7;
+                T_7t = T_6t;
 %--------------------------------------------------------------------------
 %---------------------------Geometry Generation----------------------------
 %--------------------------------------------------------------------------
@@ -658,18 +677,18 @@ Re_loss_ratio = lc_passage/lc_ref;
             if lossmodel == 5
             %loss correlation 5: Rodgers, C. "Efficiency and performance
             %characteristics of radial turbines." SAE Transactions (1967): 681-692. 
-            lambda_th = dh_46sts/U_4^2;
+            lambda_th = dh_16sts/U_4^2;
             dh_blading_rodgers = (1.2*s_c_ratio-W_mR/U_4*1/lambda_th)*W_mR^2;
             dh_secondary_rodgers = W_mR^2*(0.01*2*r_4/b_4*s_c_ratio+(1-cos(alpha_6)));
             dh_tsf = dh_blading_rodgers+dh_secondary_rodgers;
             dh_tsf = C_u4*U_4*2*r_4/(Z_r*L_h);
             end
             %Reynolds number correction of passage losses:
-            dh_tsf = dh_tsf*Re_loss_ratio;
+%             dh_tsf = dh_tsf*Re_loss_ratio;
 %########################## Tip Clearance Losses ####################
             %loss correlation according to Rodgers
             %"Performance of High-Efficiency Radial/Axial Turbine"
-            dh_ttc = 0.4*C_u4^2*e/b_4;    
+%             dh_ttc = 0.4*C_u4^2*e/b_4;    
             
             %loss correlation according to Baines
             %"Axial and Radial Turbines Part 3: Radial Turbine Design"
@@ -683,7 +702,7 @@ Re_loss_ratio = lc_passage/lc_ref;
             %Inflow Turbine Conceptual Design Code RTD,” -was found to be
             %errorous for high blade angles!!!!
             delta_P_t_rel = rho_6*W_6rms^2/2*(Z_r*tb_r/(pi*(r_6s+r_6h)*cos(beta_6m)))^2;
-            dh_te = 2/(gamma*M_6rel^2)*delta_P_t_rel/(P_6*(1+W_6rms^2/(2*T_6*cp))^(gamma/(gamma-1)));
+            dh_te = 2/(gamma_m*M_6rel^2)*delta_P_t_rel/(P_6*(1+W_6rms^2/(2*T_6*cp_m))^(gamma_m/(gamma_m-1)));
 %Baines Correlation:
 %             dh_te = 0.5*C_6^2*0.2*tb_r/o_6;
 
@@ -701,13 +720,66 @@ Re_loss_ratio = lc_passage/lc_ref;
             j_46 = dh_til+dh_tf+dh_tsf+dh_ttc+dh_te;
             j_46_old = j_46;
             w_t46q = y_46+j_46+0.5*(C_6^2-C_4^2);
+            w_t16q = y_16+j_46+0.5*(C_6^2-C_1^2);
             
-            %change in total enthalpy:
-            dh_46tt = cp*(T_4t-T_6t);
-            eta_pts = w_t46q/(y_46-0.5*(C_4^2));
+            %calculation of isentropic temperatures:
+            %isentropic comparison process (only valid for adiabatic
+            %analysis) from rotor total inlet to static rotor outlet:
+            [T_6s,~,~] = isentropic_expansion (T_1t,P_1t,P_6,f);
+            %isentropic enthalpy change from total to total rotor inlet to
+            %outlet: 
+            [T_6ts,~,~] = isentropic_expansion (T_1t,P_1t,P_6t,f);
+            %isentropic enthalpy change from total to total rotor inlet to
+            %diffuser outlet:             
+            [T_7s,~,~] = isentropic_expansion (T_1t,P_1t,P_7,f);
+            %isentropic enthalpy change from total to total rotor inlet to
+            %diffuser outlet:             
+            [T_7ts,~,~] = isentropic_expansion (T_1t,P_1t,P_7t,f);
+            
+            %changes in total enthalpy:
+            %enthalpy rotor inlet:
+            h_1t = enthalpy_abs_gas(T_1t,f);
+            %enthalpy rotor outlet:
+            h_3t = enthalpy_abs_gas(T_3t,f);
+            %total enthalpy at rotor inlet:
+            h_4t =  enthalpy_abs_gas(T_4t, f);
+            %total enthalpy at rotor outlet:
+            h_6t = enthalpy_abs_gas(T_6t, f);
+            %static enthalpy at rotor outlet:
+            h_6 = enthalpy_abs_gas(T_6, f);
+            %total enthalpy at isentropic rotor outlet:
+            h_6ts = enthalpy_abs_gas(T_6ts, f);
+            %static enthalpy at isentropic rotor outlet:
+            h_6s = enthalpy_abs_gas(T_6s, f);
+            %total enthalpy at diffuser outlet:
+            h_7t = enthalpy_abs_gas(T_7t,f);
+            %static enthalpy of isentropic comparison process at diffuser
+            %outlet:
+            h_7s = enthalpy_abs_gas(T_7s,f);
+            %total enthalpy of isentropic comparison process at diffuser
+            %outlet:
+            h_7ts = enthalpy_abs_gas(T_7ts,f);
+            
+            %rotor total to total enthalpy difference:
+            dh_46tt = h_4t-h_6t;
+            %isentropic enthalpy difference from nozzle (total) to rotor
+            %outlet (static):
+            dh_16tt = h_1t-h_6t;
+            %isentropic enthalpy difference from nozzle (total) to rotor
+            %outlet (static):
+            dh_16sts = h_1t-h_6s;            
+            %isentropic enthalpy difference from nozzle (total) to
+            %diffuser (static): 
+            dh_17tss = h_1t-h_7s;
+            %isentropic enthalpy difference from nozzle (total) to
+            %diffuser (total): 
+            dh_17tts = h_1t-h_7ts;
+            
+            eta_pts46 = w_t46q/(y_46-0.5*(C_4^2));
+            eta_pts = w_t46q/(y_16-0.5*(C_1^2));
             eta_error = abs(eta_pts-eta_pts_old);
-            eta_sts = dh_46tt/dh_46sts;
-            eta_stt = dh_46tt/dh_46stt;
+            eta_sts = dh_46tt/dh_17tss;
+            eta_stt = dh_46tt/dh_17tts;
             
             %residuals calculation:
             v_res_eta_pts (iteration_index) = abs(eta_pts-eta_pts_old)/eta_pts;
@@ -760,9 +832,9 @@ Re_loss_ratio = lc_passage/lc_ref;
         v_eta_sts(i,j) = eta_sts;
         v_P_out(i,j) = w_t46q*m_dt;
         %size parameter
-        VH(i,j) = sqrt(C_m6m*A_6)/dh_46sts^0.25;
+        VH(i,j) = sqrt(C_m6m*A_6)/dh_16sts^0.25;
         %velocity for isentropic expansion:
-        spouting_velocity = sqrt(dh_46sts*2);
+        spouting_velocity = sqrt(dh_16sts*2);
         v_blade_speed_ratio(i,j) = U_4/spouting_velocity;
         v_valid_design (i,j)=valid_design;
         v_r4 (i,j) = r_4;
