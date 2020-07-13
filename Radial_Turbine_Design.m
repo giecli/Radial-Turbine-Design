@@ -53,7 +53,7 @@ lossmodel = 2;
 %#5 - Rodgers
 %radial or mixed flow turbine?
 design = 'radial'; %'radial' or 'mixed'
-design = 'mixed';
+% design = 'mixed';
 
 %#geometry:
 e_ax = 0.2e-3;     % tip clearance axial [m]
@@ -61,7 +61,7 @@ e_rad = 0.2e-3;    % tip clearance radial [m]
 e = (e_ax+e_rad)/2; %mean tip clearance [m]
 k = 0.03e-3;          % absolute surface roughness k [m]
 k_bl = 0.98;    %boundary layer blockage parameter
-beta_4b = 40/180*pi;    % blade angle at inlet #!!! must be positive!
+beta_4b = 0/180*pi;    % blade angle at inlet #!!! must be positive!
 cone_angle = 50/180*pi; %cone angle of mixed flow turbine design
 if beta_4b<0
     error('inlet blade angle is negative!')
@@ -720,10 +720,14 @@ for i=1:length(vPsi)
             %for on and off-design performance of radial inflow
             %turbomachinery." Applied Thermal Engineering 150 (2019):
             %1066-1077., n should be chosen to be 2 always!   
-            n = 2;
+            if i_4>0
+                n = 2;
+            else
+                n = 3;
+            end
             dh_til = 0.5*W_4^2.*sin(abs(i_4)).^n;
             
-            if strcmp(design,'mixed')==1
+%             if strcmp(design,'mixed')==1
             %Incidence loss model validated for mixed flow turbines in:
             %Romagnoli, A., and R. Martinez-Botas. "Performance
             %prediction of a nozzled and nozzleless mixed-flow turbine
@@ -735,7 +739,7 @@ for i=1:length(vPsi)
                 else   
                 dh_til = K_inc * W_4^2*(0.5+i_4-pi/4)^2
                 end
-            end
+%             end
 % %########################## Friction Losses #########################
             %hydraulic length:
             L_h = L_ms;
