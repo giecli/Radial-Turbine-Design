@@ -53,7 +53,7 @@ lossmodel = 2;
 %#5 - Rodgers
 %radial or mixed flow turbine?
 design = 'radial'; %'radial' or 'mixed'
-% design = 'mixed';
+design = 'mixed';
 
 %#geometry:
 e_ax = 0.2e-3;     % tip clearance axial [m]
@@ -61,7 +61,7 @@ e_rad = 0.2e-3;    % tip clearance radial [m]
 e = (e_ax+e_rad)/2; %mean tip clearance [m]
 k = 0.03e-3;          % absolute surface roughness k [m]
 k_bl = 0.98;    %boundary layer blockage parameter
-beta_4b = 0/180*pi;    % blade angle at inlet #!!! must be positive!
+beta_4b = 40/180*pi;    % blade angle at inlet #!!! must be positive!
 cone_angle = 50/180*pi; %cone angle of mixed flow turbine design
 if beta_4b<0
     error('inlet blade angle is negative!')
@@ -100,8 +100,8 @@ maximum_iterations = 100;    %maximum design iterations before continuation
 % 6 = ROTOR OUTLET
 vPsi = linspace(0.4,1.3,20);
 vPhi = linspace(0.1,0.5,20);
-vPsi = 0.85;
-vPhi = 0.25;
+% vPsi = 0.85;
+% vPhi = 0.25;
 %         
 
 for i=1:length(vPsi)
@@ -361,10 +361,8 @@ for i=1:length(vPsi)
                 b_4 = (-((-(- 2*C_m4*k_bl*rho_4*pi*r_4^2 + m_dt*cos(cone_angle))*(2*C_m4*k_bl*rho_4*pi*r_4^2 + m_dt*cos(cone_angle)))^(1/2) - 2*pi*C_m4*k_bl*r_4^2*rho_4)/(C_m4*k_bl*rho_4*pi*cos(cone_angle)^2))^(1/2);
                 %assume that r_4 is r_4rms and calculate hub and shroud
                 %radius from cone angle: 
-                r_4h =  real(((2*r_4 + b_4*cos(cone_angle))*(2*r_4 - b_4*cos(cone_angle)))^(1/2)/2 - (b_4*cos(cone_angle)));
-                r_4s = r_4h+cos(cone_angle)*b_4;
-                z_4h = 0;
-                z_4s = sin(cone_angle)*b_4;
+                r_4s =  real(((2*r_4 + b_4*cos(cone_angle))*(2*r_4 - b_4*cos(cone_angle)))^(1/2)/2 - (b_4*cos(cone_angle)));
+                r_4h = r_4s-cos(cone_angle)*b_4;
             else
                 r_4h = r_4; 
                 r_4s = r_4;
@@ -618,14 +616,14 @@ for i=1:length(vPsi)
             %alternative formulation by aungier:
             % R.H. Aungier,Centrifugal Compressors A Strategy for Aerodynamic Design andAnalysis, ASME 2000
             z_r = 2*r_6s*(0.014+0.023*r_4/r_6h+1.58*Phi);
-            
+
             if strcmp(design,'radial') %calculation of geometry for radial turbine
                 %%%% Calculation of hub and shroud geometry and mean blade
                 %%%% surface length
                 %             %Bezier spline parameter from 0 to 1
                 u = linspace(0,1,20);
                 %hub contour:
-                P0 = [0;r_6h]; P1 = [1/3*z_r;r_6h]; P2 = [z_r;r_6h+(r_4-r_6h)/3]; P3 = [z_r;r_4-(r_4-r_6h)/3]; P4 = [z_r;r_4]; P5 = [z_r;r_4*1.2];
+                P0 = [0;r_6h]; P1 = [1/3*z_r;r_6h]; P3 = [z_r;r_4-(r_4-r_6h)/3]; P4 = [z_r;r_4]; 
                 Phelp1 = (P1+P3)/2; Phelp2 = [P4(1); P0(2)]; Phelp3 = (Phelp1+Phelp2)/2;
                 Phub = [P0 P1 Phelp3 P3 P4 ]; Phub = flip(Phub,2);
 
@@ -633,7 +631,7 @@ for i=1:length(vPsi)
                 [Rhub] = bezier_spline(Phub,u);
 
                 %shroud contour:
-                P0 = [0;r_6s]; P1 = [1/4*(z_r-b_4);r_6s]; P2 = [0.75*(z_r-b_4);r_6s+((r_4-r_6s)/3)/2]; P3 = [z_r-b_4;r_4-(r_4-r_6s)/4]; P4 = [z_r-b_4;r_4];
+                P0 = [0;r_6s]; P1 = [1/4*(z_r-b_4);r_6s];  P3 = [z_r-b_4;r_4-(r_4-r_6s)/4]; P4 = [z_r-b_4;r_4];
                 Phelp1 = (P1+P3)/2; Phelp2 = [P4(1); P0(2)]; Phelp3 = (Phelp1+Phelp2)/2;
                 Pshroud = [P0 P1 Phelp3 P3 P4];Pshroud = flip(Pshroud,2);
                 [Rshroud] = bezier_spline(Pshroud,u);
@@ -648,21 +646,26 @@ for i=1:length(vPsi)
                 %meridional length at every point:
                 L_m = cumsum([0 dm]);
                 L_ms = L_m(end);
-            else %calculation of geometry for mixed flow turbine
-                                %%%% Calculation of hub and shroud geometry and mean blade
-                %%%% surface length
+            elseif strcmp(design,'mixed')==1 %calculation of geometry for mixed flow turbine
+                  %%%% Calculation of hub and shroud geometry and mean blade
+                %%%% surface length for mixed flow turbine
+                %calculate z coordinate of hub and shroud inlet:
+                z_4s = z_r-sin(cone_angle)*b_4;
+                z_4h = z_r;
                 %             %Bezier spline parameter from 0 to 1
                 u = linspace(0,1,20);
                 %hub contour:
-                P0 = [0;r_6h]; P1 = [0;r_6h]; P2 = [0.5*z_r;r_6h]; P3 = [z_r;r_6h+(r_4-r_6h)/3]; P4 = [z_r;r_6h+2*(r_4-r_6h)/3]; P5 = [z_r;r_4]; P6 = [z_r;r_4*1.2];
-                Phub = [P0 P1 P2 P3 P4 P5]; Phub = flip(Phub,2);
+                P0 = [0;r_6h]; P1 = [1/3*z_r;r_6h]; P4 = [z_4h;r_4h]; P3 = [P4(1)-(r_4h-r_6h)*1/4/tan(cone_angle);P4(2)-(r_4h-r_6h)*1/4];
+                Phelp1 = (P1+P3)/2; Phelp2 = [P4(1); P0(2)]; Phelp3 = (Phelp1+Phelp2)/2;
+                Phub = [P0 P1  P3 P4 ]; Phub = flip(Phub,2);
 
                 %hub contour points at Bezier spline parameter u:
                 [Rhub] = bezier_spline(Phub,u);
 
                 %shroud contour:
-                P0 = [0;r_6s]; P1 = [0.5*(z_r-b_4);r_6s]; P2 = [0.75*(z_r-b_4);r_6s+((r_4-r_6s)/3)/2]; P3 = [z_r-b_4;r_6s+2*(r_4-r_6s)/3]; P4 = [z_r-b_4;r_4];
-                Pshroud = [P0 P1 P2 P3 P4];Pshroud = flip(Pshroud,2);
+                P0 = [0;r_6s]; P1 = [1/3*(z_r-b_4);r_6s]; P4 = [z_4s;r_4s]; P3 = [P4(1)-(r_4s-r_6s)*1/3/tan(cone_angle);P4(2)-(r_4s-r_6s)*1/3];
+                Phelp1 = (P1+P3)/2; Phelp2 = [P4(1); P0(2)]; Phelp3 = (Phelp1+Phelp2)/2;
+                Pshroud = [P0 P1 P3 P4];Pshroud = flip(Pshroud,2);
                 [Rshroud] = bezier_spline(Pshroud,u);
 
                 %meanline meridional points in z-r plane:
@@ -977,11 +980,20 @@ for i=1:length(vPsi)
         if size(vPsi,2)==1
             % plot hub and shroud bezier spline contour:
             subplot(2,2,1)
+            %plot hub contour control points:
             plot(Phub(1,:),Phub(2,:),':s','Color','blue');
+            %plot hub contour bezier spline:
             hold on;plot(Rhub(1,:),Rhub(2,:),'Color','black');
+            %plot shroud contour control points:
             plot(Pshroud(1,:),Pshroud(2,:),':s','Color','blue');
+            %plot shroud contour bezier spline:
             hold on;plot(Rshroud(1,:),Rshroud(2,:),'Color','black');axis equal
+            %plot mean streamline:
             plot(R_ml(1,:),R_ml(2,:),'-.k');
+            %plot leading edge:
+            line([Pshroud(1,1) Phub(1,1)],[Pshroud(2,1) Phub(2,1)],'Color','black');
+            %plot trailing edge:
+            line([Pshroud(1,end) Phub(1,end)],[Pshroud(2,end) Phub(2,end)],'Color','black');
             
 %             %plot turbomachinery 3d geometry:
 %             subplot(2,2,2)
