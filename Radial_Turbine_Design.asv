@@ -35,7 +35,7 @@ q_46 = Q_46/m_dt;        % Heat flux rotor q_r  [J/kg]
 f = 0.01;        % fuel to air ratio [];
 xi_s = 0.967;   % Nozzle total pressure loss factor stator according to Wasserbauer, Glassman, "FORTRAN PROGRAM FOR PREDICTING OFF-DESIGN PERFORMANCE OF RADIAL-INFLOW TURBINES", p.3
 y_plus = 1;    %CFD y plus wall spacing calculation
-alpha_1 = 40/pi*180;    %stator inlet flow angle
+alpha_1 = 0/pi*180;    %stator inlet flow angle
 %mean dynamic viscosity:
 mu_4 = 48e-6;                           %dynamic viscosity approximation inlet [Pa s]
 mu_6 = 43e-6;                           %dynamic viscosity approximation outlet [Pa s]
@@ -53,6 +53,7 @@ lossmodel = 2;
 %#5 - Rodgers
 %radial or mixed flow turbine?
 design = 'radial'; %'radial' or 'mixed'
+design = 'mixed';
 
 %#geometry:
 e_ax = 0.2e-3;     % tip clearance axial [m]
@@ -60,7 +61,8 @@ e_rad = 0.2e-3;    % tip clearance radial [m]
 e = (e_ax+e_rad)/2; %mean tip clearance [m]
 k = 0.03e-3;          % absolute surface roughness k [m]
 k_bl = 0.98;    %boundary layer blockage parameter
-beta_4b = 40/180*pi;    % blade angle at inlet #!!! must be positive!
+beta_4b = 0/180*pi;    % blade angle at inlet #!!! must be positive!
+cone_angle = 50/180*pi; %cone angle of mixed flow turbine design
 if beta_4b<0
     error('inlet blade angle is negative!')
 end
@@ -98,8 +100,8 @@ maximum_iterations = 100;    %maximum design iterations before continuation
 % 6 = ROTOR OUTLET
 vPsi = linspace(0.4,1.3,20);
 vPhi = linspace(0.1,0.5,20);
-% vPsi = 1.016;
-% vPhi = 0.2895;
+vPsi = 1.016;
+vPhi = 0.2895;
 %         
 
 for i=1:length(vPsi)
@@ -199,7 +201,14 @@ for i=1:length(vPsi)
                     M_1old = M_1;
                 end
             end
-%             
+            %switch valid design to 0 if total inlet mach number is
+            %exceeded:
+            if M_1>1
+            valid_design = 0;
+            disp(['Warning: Stator Inlet total Mach number M_1 = ' num2str(M_1) ' at Psi = ' num2str(Psi) ', Phi = ' num2str(Phi)]);
+            else
+            valid_design = 1;
+            end
             %stator outlet total temperature and pressure:
             T_3t = TIT-q_13/cp_m;
             %total outlet pressure based on total pressure loss coefficient
@@ -330,7 +339,13 @@ for i=1:length(vPsi)
             %inlet conditions:
             C_4 = sqrt(C_m4^2+C_u4^2);
             M_4 = C_4/(sqrt(gamma_m*R*T_4));
-
+            if M_4>1
+                valid_design = 0;
+                disp(['Warning: Rotor Inlet total Mach number M_4 = ' num2str(M_4) ' at Psi = ' num2str(Psi) ', Phi = ' num2str(Phi)]);
+            else
+                valid_design = 1;
+            end
+            
             %inlet static conditions:
             P_4 = P_4t*(1+(gamma_m-1)/2*M_4^2)^(-gamma_m/(gamma_m-1));
             T_4 = T_4t*(1+(gamma_m-1)/2*M_4^2)^-1;
@@ -338,6 +353,17 @@ for i=1:length(vPsi)
             rho_4t = P_4t/(R*T_4t);
             %calculation of inlet blade height:
             b_4 = m_dt/(rho_4*C_m4*(2*pi*r_4*k_bl-Z_r*tb_r));
+            
+            %inlet shroud and hub radius for mixed flow turbine:
+            if strcmp(design,'mixed')==1
+                %assume that r_4 is r_4rms and calculate hub and shroud
+                %radius from cone angle: 
+                r_4h =  real(((2*r_4 + b_4*cos(cone_angle))*(2*r_4 - b_4*cos(cone_angle)))^(1/2)/2 - (b_4*cos(cone_angle)));
+                r_4s = r_4h+cos(cone_angle)*b_4;
+            else
+                r_4h = r_4; 
+                r_4s = r_4;
+            end
             
             %relative tip clearance:
             e_rel = e/b_4;
@@ -349,6 +375,12 @@ for i=1:length(vPsi)
             T_4trel = T_4+W_4^2/(2*cp_m);
             P_4trel = P_4*(T_4trel/T_4)^(gamma_m/(gamma_m-1));
             
+            if M_4rel>1
+            valid_design = 0;
+            disp(['Warning: Rotor Inlet Relative Mach number M_4rel = ' num2str(M_4rel) ' at Psi = ' num2str(Psi) ', Phi = ' num2str(Phi)]);
+            else
+            valid_design = 1;
+            end
             
             %iteration for outlet area of the turbine, assuming
             %constant meridional velocity over span:
@@ -391,6 +423,13 @@ for i=1:length(vPsi)
             %outlet velocities (total):
             C_6 = sqrt(C_m6m^2+C_u6m^2);
             M_6 = C_6/(sqrt(gamma_m*R*T_6));
+            if M_6>1
+            valid_design = 0;
+            disp(['Warning: Rotor Outlet Absolute Mach Number M_6 = ' num2str(M_6) ' at Psi = ' num2str(Psi) ', Phi = ' num2str(Phi)]);
+            else
+            valid_design = 1;
+            end
+            
             
             %calculating beta angles:
             beta_6m = sign(C_u6m-U_6m)*atan((U_6m-C_u6m)/W_m6m);
@@ -426,7 +465,13 @@ for i=1:length(vPsi)
             M_6rel = W_6/sqrt(gamma_m*R*T_6);
             T_6trel = T_6+W_6^2/(2*cp_m);
             P_6trel = P_6*(T_6trel/T_6)^(gamma_m/(gamma_m-1));
-            
+            %exclude design if relative outlet mach number is above 1:
+            if M_6rel>1
+            valid_design = 0;
+            disp(['Warning: Rotor Outlet Relative Mach Number M_6rel = ' num2str(M_6rel) ' at Psi = ' num2str(Psi) ', Phi = ' num2str(Phi)]);
+            else
+            valid_design = 1;
+            end
             %_____________________________________________________________
             %if blade angle exceeds maximum blade angle, set new flow angle
             %according to maximum flow angle:            
@@ -493,6 +538,70 @@ for i=1:length(vPsi)
                  end
                 P_7t = P_7+rho_7/2*C_7;
                 T_7t = T_6t;
+                
+%----------------------Enthalpies and Efficiencies------------------------
+            %calculation of isentropic temperatures:
+            %isentropic comparison process (only valid for adiabatic
+            %analysis) from rotor total inlet to static rotor outlet:
+            [T_6s,~,~] = isentropic_expansion (T_1t,P_1t,P_6,f);
+            %isentropic enthalpy change from total to total rotor inlet to
+            %outlet: 
+            [T_6ts,~,~] = isentropic_expansion (T_1t,P_1t,P_6t,f);
+            %isentropic enthalpy change from total to total rotor inlet to
+            %diffuser outlet:             
+%             [T_7s,~,~] = isentropic_expansion (T_1t,P_1t,P_7,f);
+            %isentropic enthalpy change from total to total rotor inlet to
+            %diffuser outlet:             
+%             [T_7ts,~,~] = isentropic_expansion (T_1t,P_1t,P_7t,f);
+            
+            %changes in total enthalpy:
+            %enthalpy rotor inlet:
+            h_1t = enthalpy_abs_gas(T_1t,f);
+            %enthalpy rotor outlet:
+            h_3t = enthalpy_abs_gas(T_3t,f);
+            %total enthalpy at rotor inlet:
+            h_4t =  enthalpy_abs_gas(T_4t, f);
+            %total enthalpy at rotor outlet:
+            h_6t = enthalpy_abs_gas(T_6t, f);
+            %static enthalpy at rotor outlet:
+            h_6 = enthalpy_abs_gas(T_6, f);
+            %total enthalpy at isentropic rotor outlet:
+            h_6ts = enthalpy_abs_gas(T_6ts, f);
+            %static enthalpy at isentropic rotor outlet:
+            h_6s = enthalpy_abs_gas(T_6s, f);
+            %total enthalpy at diffuser outlet:
+%             h_7t = enthalpy_abs_gas(T_7t,f);
+            %static enthalpy of isentropic comparison process at diffuser
+            %outlet:
+%             h_7s = enthalpy_abs_gas(T_7s,f);
+            %total enthalpy of isentropic comparison process at diffuser
+            %outlet:
+%             h_7ts = enthalpy_abs_gas(T_7ts,f);
+            
+            %rotor total to total enthalpy difference:
+            dh_46tt = h_4t-h_6t;
+            %isentropic enthalpy difference from nozzle (total) to rotor
+            %outlet (static):
+            dh_16tt = h_1t-h_6t;
+            %isentropic enthalpy difference from nozzle (total) to rotor
+            %outlet (static):
+            dh_16tss = h_1t-h_6s;
+            %isentropic enthalpy difference from nozzle (total) to rotor
+            %outlet (total):
+            dh_16tts = h_1t-h_6ts;
+            %isentropic enthalpy difference from nozzle (total) to
+            %diffuser (static): 
+%             dh_17tss = h_1t-h_7s;
+            %isentropic enthalpy difference from nozzle (total) to
+            %diffuser (total): 
+%             dh_17tts = h_1t-h_7ts;
+            
+            eta_pts = w_t46q/(y_16-0.5*(C_1^2));
+            eta_error = abs(eta_pts-eta_pts_old);
+            eta_sts = dh_46tt/dh_16tss;
+            eta_stt = dh_46tt/dh_16tts;
+                
+                
 %--------------------------------------------------------------------------
 %---------------------------Geometry Generation----------------------------
 %--------------------------------------------------------------------------
@@ -575,7 +684,15 @@ for i=1:length(vPsi)
             %1066-1077., n should be chosen to be 2 always!   
             n = 2;
             dh_til = 0.5*W_4^2.*sin(abs(i_4)).^n;
-           
+            
+            if strcmp(design,'mixed')==1
+            %Incidence loss model validated for mixed flow turbines in:
+            %Romagnoli, A., and R. Martinez-Botas. "Performance
+            %prediction of a nozzled and nozzleless mixed-flow turbine
+            %in steady conditions." International Journal of Mechanical
+            %Sciences 53.8 (2011): 557-574. 
+            if beta
+            dh_til = K_inc * 
 % %########################## Friction Losses #########################
             %hydraulic length:
             L_h = L_ms;
@@ -603,17 +720,17 @@ for i=1:length(vPsi)
             dh_tf=c_fct*L_h/D_h*W_m^2;
 %                         dh_tf = 0;
 %########################## Passage Losses ####################
-% %Reynoldsnumber dependency:
-% %cord length:
-c_r = sqrt((r_4-r_6h+b_4/2)^2+(z_r)^2);
-%reference reynolds number according to Wasserbauer et al.:
-Re_ref = 20e5;
-%as proposed by Wasserbauer et al.:
-lc_ref = 0.3+(1-0.3)*Re_ref^-0.2;   %reference loss coefficient
-Re_passage = W_6 * c_r * rho_6/ mu_6;
-K = 0.3;
-lc_passage = K+(1-K)*Re_passage^-0.2;
-Re_loss_ratio = lc_passage/lc_ref;
+            % %Reynoldsnumber dependency:
+            % %cord length:
+            c_r = sqrt((r_4-r_6h+b_4/2)^2+(z_r)^2);
+            %reference reynolds number according to Wasserbauer et al.:
+            Re_ref = 20e5;
+            %as proposed by Wasserbauer et al.:
+            lc_ref = 0.3+(1-0.3)*Re_ref^-0.2;   %reference loss coefficient
+            Re_passage = W_6 * c_r * rho_6/ mu_6;
+            K = 0.3;
+            lc_passage = K+(1-K)*Re_passage^-0.2;
+            Re_loss_ratio = lc_passage/lc_ref;
 
             if lossmodel == 1
                 %#loss correlation 1:
@@ -699,14 +816,26 @@ Re_loss_ratio = lc_passage/lc_ref;
             C_r = (r_6s/r_4)*(z_r-b_4)/(C_m6m*r_6rms*b_6);
             dh_ttc = real(U_4^3*Z_r/(8*pi)*(K_a*e_ax*C_a+K_r*e_rad*C_r+K_ar*sqrt(e_ax*e_rad*C_a*C_r)));
             
+            if strcmp(design,'mixed')==1
+                %Wasserbauer, COMPUTER PROGRAM FOR DESIGN ANALYSIS OF
+                %RADIAL INFLOW TURBINES; 
+                %validated for mixed flow turbines in:
+                %Romagnoli, A., and R. Martinez-Botas. "Performance
+                %prediction of a nozzled and nozzleless mixed-flow turbine
+                %in steady conditions." International Journal of Mechanical
+                %Sciences 53.8 (2011): 557-574.   
+                dh_ttc = dh_46tt*(e_rad/(2*r_6s))*2*r_6s/b_6;
+            end
+                
+            
 %########################## Trailing Edge Losses ####################
             %according to Glassman, “Enhanced Analysis and User’s Manual for Radial-
             %Inflow Turbine Conceptual Design Code RTD,” -was found to be
             %errorous for high blade angles!!!!
-            delta_P_t_rel = rho_6*W_6rms^2/2*(Z_r*tb_r/(pi*(r_6s+r_6h)*cos(beta_6m)))^2;
-            dh_te = 2/(gamma_m*M_6rel^2)*delta_P_t_rel/(P_6*(1+W_6rms^2/(2*T_6*cp_m))^(gamma_m/(gamma_m-1)));
+%             delta_P_t_rel = rho_6*W_6rms^2/2*(Z_r*tb_r/(pi*(r_6s+r_6h)*cos(beta_6m)))^2;
+%             dh_te = 2/(gamma_m*M_6rel^2)*delta_P_t_rel/(P_6*(1+W_6rms^2/(2*T_6*cp_m))^(gamma_m/(gamma_m-1)));
 %Baines Correlation:
-%             dh_te = 0.5*C_6^2*0.2*tb_r/o_6;
+            dh_te = 0.5*C_6^2*0.2*tb_r/o_6;
 
 %########################## Kinetic Energy Exit Losses ####################
             dh_tke = (1-Cp)*C_6^2/2;
@@ -723,68 +852,7 @@ Re_loss_ratio = lc_passage/lc_ref;
             j_46_old = j_46;
             w_t46q = y_46+j_46+0.5*(C_6^2-C_4^2);
             w_t16q = y_16+j_46+0.5*(C_6^2-C_1^2);
-            
-            %calculation of isentropic temperatures:
-            %isentropic comparison process (only valid for adiabatic
-            %analysis) from rotor total inlet to static rotor outlet:
-            [T_6s,~,~] = isentropic_expansion (T_1t,P_1t,P_6,f);
-            %isentropic enthalpy change from total to total rotor inlet to
-            %outlet: 
-            [T_6ts,~,~] = isentropic_expansion (T_1t,P_1t,P_6t,f);
-            %isentropic enthalpy change from total to total rotor inlet to
-            %diffuser outlet:             
-%             [T_7s,~,~] = isentropic_expansion (T_1t,P_1t,P_7,f);
-            %isentropic enthalpy change from total to total rotor inlet to
-            %diffuser outlet:             
-%             [T_7ts,~,~] = isentropic_expansion (T_1t,P_1t,P_7t,f);
-            
-            %changes in total enthalpy:
-            %enthalpy rotor inlet:
-            h_1t = enthalpy_abs_gas(T_1t,f);
-            %enthalpy rotor outlet:
-            h_3t = enthalpy_abs_gas(T_3t,f);
-            %total enthalpy at rotor inlet:
-            h_4t =  enthalpy_abs_gas(T_4t, f);
-            %total enthalpy at rotor outlet:
-            h_6t = enthalpy_abs_gas(T_6t, f);
-            %static enthalpy at rotor outlet:
-            h_6 = enthalpy_abs_gas(T_6, f);
-            %total enthalpy at isentropic rotor outlet:
-            h_6ts = enthalpy_abs_gas(T_6ts, f);
-            %static enthalpy at isentropic rotor outlet:
-            h_6s = enthalpy_abs_gas(T_6s, f);
-            %total enthalpy at diffuser outlet:
-%             h_7t = enthalpy_abs_gas(T_7t,f);
-            %static enthalpy of isentropic comparison process at diffuser
-            %outlet:
-%             h_7s = enthalpy_abs_gas(T_7s,f);
-            %total enthalpy of isentropic comparison process at diffuser
-            %outlet:
-%             h_7ts = enthalpy_abs_gas(T_7ts,f);
-            
-            %rotor total to total enthalpy difference:
-            dh_46tt = h_4t-h_6t;
-            %isentropic enthalpy difference from nozzle (total) to rotor
-            %outlet (static):
-            dh_16tt = h_1t-h_6t;
-            %isentropic enthalpy difference from nozzle (total) to rotor
-            %outlet (static):
-            dh_16tss = h_1t-h_6s;
-            %isentropic enthalpy difference from nozzle (total) to rotor
-            %outlet (total):
-            dh_16tts = h_1t-h_6ts;
-            %isentropic enthalpy difference from nozzle (total) to
-            %diffuser (static): 
-%             dh_17tss = h_1t-h_7s;
-            %isentropic enthalpy difference from nozzle (total) to
-            %diffuser (total): 
-%             dh_17tts = h_1t-h_7ts;
-            
-            eta_pts = w_t46q/(y_16-0.5*(C_1^2));
-            eta_error = abs(eta_pts-eta_pts_old);
-            eta_sts = dh_46tt/dh_16tss;
-            eta_stt = dh_46tt/dh_16tts;
-            
+                       
             %residuals calculation:
             v_res_eta_pts (iteration_index) = abs(eta_pts-eta_pts_old)/eta_pts;
             v_res_r_4 (iteration_index) = abs(r_4-r_4_old)/r_4;
@@ -1039,7 +1107,7 @@ if size(vPsi,2)>1
     sec_rel(sec_rel==0)=nan;
     subplot(3,2,2)
     h = contourf(vPhi, vPsi, sec_rel*100,'ShowText','on','Color','black');hold on;
-    title('Secondary Flow Losses');
+    title('Secondary Flow Losses [%]');
     xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
     
     %Kinetic Exit Energy Losses
@@ -1047,8 +1115,8 @@ if size(vPsi,2)>1
     kin_rel = v_loss_rel(:,:,6).*v_valid_design;
     kin_rel(kin_rel==0)=nan;
     subplot(3,2,3)
-    h = contourf(vPhi, vPsi, kin_rel,'ShowText','on','Color','black');hold on;
-    title('Kinetic Exit Energy Losses');
+    h = contourf(vPhi, vPsi, kin_rel*100,'ShowText','on','Color','black');hold on;
+    title('Kinetic Exit Energy Losses [%]');
     xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
     
     %Incidence Losses
@@ -1056,8 +1124,8 @@ if size(vPsi,2)>1
     inc_rel = v_loss_rel(:,:,1).*v_valid_design;
     inc_rel(inc_rel==0)=nan;
     subplot(3,2,4)
-    h = contourf(vPhi, vPsi, inc_rel,'ShowText','on','Color','black');hold on;
-    title('Incidence Losses');
+    h = contourf(vPhi, vPsi, inc_rel*100,'ShowText','on','Color','black');hold on;
+    title('Incidence Losses [%]');
     xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
     
     
@@ -1066,8 +1134,8 @@ if size(vPsi,2)>1
     fr_rel = v_loss_rel(:,:,2).*v_valid_design;
     fr_rel(fr_rel==0)=nan;
     subplot(3,2,5)
-    h = contourf(vPhi, vPsi, fr_rel,'ShowText','on','Color','black');hold on;
-    title('Reynolds Number Dependent Losses (Friction)');
+    h = contourf(vPhi, vPsi, fr_rel*100,'ShowText','on','Color','black');hold on;
+    title('Reynolds Number Dependent Losses (Friction) [%]');
     xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
     
     %Trailing Edge Losses
@@ -1076,8 +1144,8 @@ if size(vPsi,2)>1
     te_rel = v_loss_rel(:,:,5).*v_valid_design;
     te_rel(te_rel==0)=nan;
     subplot(3,2,6)
-    h = contourf(vPhi, vPsi, te_rel,'ShowText','on','Color','black');hold on;
-    title('Trailing Edge Losses');
+    h = contourf(vPhi, vPsi, te_rel*100,'ShowText','on','Color','black');hold on;
+    title('Trailing Edge Losses [%]');
     xlabel('Flow Coefficient \Phi');ylabel('Loading Coefficient \Phi');
     
     %------------------Geometry------------------------------------
