@@ -53,7 +53,7 @@ lossmodel = 2;
 %#5 - Rodgers
 %radial or mixed flow turbine?
 design = 'radial'; %'radial' or 'mixed'
-% design = 'mixed';
+design = 'mixed';
 
 %#geometry:
 e_ax = 0.2e-3;     % tip clearance axial [m]
@@ -61,7 +61,7 @@ e_rad = 0.2e-3;    % tip clearance radial [m]
 e = (e_ax+e_rad)/2; %mean tip clearance [m]
 k = 0.03e-3;          % absolute surface roughness k [m]
 k_bl = 0.98;    %boundary layer blockage parameter
-beta_4b = 0/180*pi;    % blade angle at inlet #!!! must be positive!
+beta_4b = 40/180*pi;    % blade angle at inlet #!!! must be positive!
 cone_angle = 50/180*pi; %cone angle of mixed flow turbine design
 if beta_4b<0
     error('inlet blade angle is negative!')
@@ -73,7 +73,7 @@ omega=rpm/60*2*pi;
 Xi = 1;         % rotor inlet/outlet meridional velocity ratio
 tb_r = 0.3e-3;          % rotor blade thickness t_b [m] (uniform)
 r_fbr = 0.1e-3;         %rotor blade root fillet radius
-
+rho_m = 8400;           %material density [kg/m^3]
 
 %CONSTRAINTS
 beta_6m_max=-50/180*pi;     % outlet maximum blade angle [°]
@@ -102,7 +102,7 @@ vPsi = linspace(0.4,1.3,20);
 vPhi = linspace(0.1,0.5,20);
 % vPsi = 0.85;
 % vPhi = 0.25;
-%         
+        
 
 for i=1:length(vPsi)
     Psi = vPsi(i);
@@ -727,7 +727,7 @@ for i=1:length(vPsi)
             end
             dh_til = 0.5*W_4^2.*sin(abs(i_4)).^n;
             
-%             if strcmp(design,'mixed')==1
+            if strcmp(design,'mixed')==1
             %Incidence loss model validated for mixed flow turbines in:
             %Romagnoli, A., and R. Martinez-Botas. "Performance
             %prediction of a nozzled and nozzleless mixed-flow turbine
@@ -737,9 +737,9 @@ for i=1:length(vPsi)
                 if i_4 < pi/4
                     dh_til = K_inc*W_4^2*sin(abs(i_4))^2;
                 else   
-                dh_til = K_inc * W_4^2*(0.5+i_4-pi/4)^2
+                dh_til = K_inc * W_4^2*(0.5+i_4-pi/4)^2;
                 end
-%             end
+            end
 % %########################## Friction Losses #########################
             %hydraulic length:
             L_h = L_ms;
@@ -948,6 +948,12 @@ for i=1:length(vPsi)
             valid_design = 0;
             break;
             end
+            
+%-------------------------------------------------------------------------%
+%----------Mechanical Feasibility-----------------------------------------%
+%-------------------------------------------------------------------------%
+        K_g = 0.3;
+        sigma_r = U_4^2*K_g*rho_m; %material stress 
         end
         
         %save data of current iteration in vectors:
@@ -1052,6 +1058,7 @@ axis equal;
             disp(['eta_s,ts = ' num2str(eta_sts*100) ' %'])
             disp(['eta_s,tt = ' num2str(eta_stt*100) ' %'])
             disp(['CFD: wall spacing for y+ = ' num2str(y_plus) ': ' num2str(delta_s) ' m'])
+           disp(['Estimated maximum stress: ' num2str(sigma_r/10^6) ' MPa'])     
             
 %                     %             %plot Nozzle geometry:
 %                     subplot(2,2,4)
