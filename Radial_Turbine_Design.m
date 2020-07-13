@@ -100,8 +100,8 @@ maximum_iterations = 100;    %maximum design iterations before continuation
 % 6 = ROTOR OUTLET
 vPsi = linspace(0.4,1.3,20);
 vPhi = linspace(0.1,0.5,20);
-vPsi = 1.016;
-vPhi = 0.2895;
+vPsi = 0.85;
+vPhi = 0.25;
 %         
 
 for i=1:length(vPsi)
@@ -356,6 +356,9 @@ for i=1:length(vPsi)
             
             %inlet shroud and hub radius for mixed flow turbine:
             if strcmp(design,'mixed')==1
+                %calculate b_4 based on linear equation system:
+                %r_4 is r_4rms
+                b_4 = (-((-(- 2*C_m4*k_bl*rho_4*pi*r_4^2 + m_dt*cos(cone_angle))*(2*C_m4*k_bl*rho_4*pi*r_4^2 + m_dt*cos(cone_angle)))^(1/2) - 2*pi*C_m4*k_bl*r_4^2*rho_4)/(C_m4*k_bl*rho_4*pi*cos(cone_angle)^2))^(1/2);
                 %assume that r_4 is r_4rms and calculate hub and shroud
                 %radius from cone angle: 
                 r_4h =  real(((2*r_4 + b_4*cos(cone_angle))*(2*r_4 - b_4*cos(cone_angle)))^(1/2)/2 - (b_4*cos(cone_angle)));
@@ -616,33 +619,63 @@ for i=1:length(vPsi)
             % R.H. Aungier,Centrifugal Compressors A Strategy for Aerodynamic Design andAnalysis, ASME 2000
             z_r = 2*r_6s*(0.014+0.023*r_4/r_6h+1.58*Phi);
             
-            %%%% Calculation of hub and shroud geometry and mean blade
-            %%%% surface length
-            %             %Bezier spline parameter from 0 to 1
-            u = linspace(0,1,20);
-            %hub contour:
-            P0 = [0;r_6h]; P1 = [0;r_6h]; P2 = [0.5*z_r;r_6h]; P3 = [z_r;r_6h+(r_4-r_6h)/3]; P4 = [z_r;r_6h+2*(r_4-r_6h)/3]; P5 = [z_r;r_4]; P6 = [z_r;r_4*1.2];
-            Phub = [P0 P1 P2 P3 P4 P5]; Phub = flip(Phub,2);
+            if strcmp(design,'radial') %calculation of geometry for radial turbine
+                %%%% Calculation of hub and shroud geometry and mean blade
+                %%%% surface length
+                %             %Bezier spline parameter from 0 to 1
+                u = linspace(0,1,20);
+                %hub contour:
+                P0 = [0;r_6h]; P1 = [1/3*z_r;r_6h]; P2 = [z_r;r_6h+(r_4-r_6h)/3]; P3 = [z_r;r_4-(r_4-r_6h)/3]; P4 = [z_r;r_4]; P5 = [z_r;r_4*1.2];
+                Phelp1 = (P1+P3)/2; Phelp2 = [P4(1); P0(2)]; Phelp3 = (Phelp1+Phelp2)/2;
+                Phub = [P0 P1 Phelp3 P3 P4 ]; Phub = flip(Phub,2);
 
-            %hub contour points at Bezier spline parameter u:
-            [Rhub] = bezier_spline(Phub,u);
+                %hub contour points at Bezier spline parameter u:
+                [Rhub] = bezier_spline(Phub,u);
 
-            %shroud contour:
-            P0 = [0;r_6s]; P1 = [0.5*(z_r-b_4);r_6s]; P2 = [0.75*(z_r-b_4);r_6s+((r_4-r_6s)/3)/2]; P3 = [z_r-b_4;r_6s+2*(r_4-r_6s)/3]; P4 = [z_r-b_4;r_4];
-            Pshroud = [P0 P1 P2 P3 P4];Pshroud = flip(Pshroud,2);
-            [Rshroud] = bezier_spline(Pshroud,u);
-            
-            %meanline meridional points in z-r plane:
-            R_ml =  (Rhub+Rshroud)/2; P_ml = R_ml;
-            %assume linear blade beta angle change from inlet to outlet:
-            beta_ml = linspace(beta_4b, beta_6m, length(u));
-            %calculate euclidian distance of the interpolation points in
-            %z-r plane:
-            dm = (diff(R_ml'))';dm = dm.^2;dm = sum(dm);dm = sqrt(dm);
-            %meridional length at every point:
-            L_m = cumsum([0 dm]);
-            L_ms = L_m(end);
-            
+                %shroud contour:
+                P0 = [0;r_6s]; P1 = [1/4*(z_r-b_4);r_6s]; P2 = [0.75*(z_r-b_4);r_6s+((r_4-r_6s)/3)/2]; P3 = [z_r-b_4;r_4-(r_4-r_6s)/4]; P4 = [z_r-b_4;r_4];
+                Phelp1 = (P1+P3)/2; Phelp2 = [P4(1); P0(2)]; Phelp3 = (Phelp1+Phelp2)/2;
+                Pshroud = [P0 P1 Phelp3 P3 P4];Pshroud = flip(Pshroud,2);
+                [Rshroud] = bezier_spline(Pshroud,u);
+
+                %meanline meridional points in z-r plane:
+                R_ml =  (Rhub+Rshroud)/2; P_ml = R_ml;
+                %assume linear blade beta angle change from inlet to outlet:
+                beta_ml = linspace(beta_4b, beta_6m, length(u));
+                %calculate euclidian distance of the interpolation points in
+                %z-r plane:
+                dm = (diff(R_ml'))';dm = dm.^2;dm = sum(dm);dm = sqrt(dm);
+                %meridional length at every point:
+                L_m = cumsum([0 dm]);
+                L_ms = L_m(end);
+            else %calculation of geometry for mixed flow turbine
+                                %%%% Calculation of hub and shroud geometry and mean blade
+                %%%% surface length
+                %             %Bezier spline parameter from 0 to 1
+                u = linspace(0,1,20);
+                %hub contour:
+                P0 = [0;r_6h]; P1 = [0;r_6h]; P2 = [0.5*z_r;r_6h]; P3 = [z_r;r_6h+(r_4-r_6h)/3]; P4 = [z_r;r_6h+2*(r_4-r_6h)/3]; P5 = [z_r;r_4]; P6 = [z_r;r_4*1.2];
+                Phub = [P0 P1 P2 P3 P4 P5]; Phub = flip(Phub,2);
+
+                %hub contour points at Bezier spline parameter u:
+                [Rhub] = bezier_spline(Phub,u);
+
+                %shroud contour:
+                P0 = [0;r_6s]; P1 = [0.5*(z_r-b_4);r_6s]; P2 = [0.75*(z_r-b_4);r_6s+((r_4-r_6s)/3)/2]; P3 = [z_r-b_4;r_6s+2*(r_4-r_6s)/3]; P4 = [z_r-b_4;r_4];
+                Pshroud = [P0 P1 P2 P3 P4];Pshroud = flip(Pshroud,2);
+                [Rshroud] = bezier_spline(Pshroud,u);
+
+                %meanline meridional points in z-r plane:
+                R_ml =  (Rhub+Rshroud)/2; P_ml = R_ml;
+                %assume linear blade beta angle change from inlet to outlet:
+                beta_ml = linspace(beta_4b, beta_6m, length(u));
+                %calculate euclidian distance of the interpolation points in
+                %z-r plane:
+                dm = (diff(R_ml'))';dm = dm.^2;dm = sum(dm);dm = sqrt(dm);
+                %meridional length at every point:
+                L_m = cumsum([0 dm]);
+                L_ms = L_m(end);
+            end
             
             %alternative formulation of mean surface length:
             %mean surface length according to Ventura et al.
@@ -944,10 +977,11 @@ for i=1:length(vPsi)
         if size(vPsi,2)==1
             % plot hub and shroud bezier spline contour:
             subplot(2,2,1)
-            plot(Phub(1,:),Phub(2,:),'*--','Color','black');
-            hold on;plot(Rhub(1,:),Rhub(2,:),'Color','blue');
-            plot(Pshroud(1,:),Pshroud(2,:),'*--','Color','black');
-            hold on;plot(Rshroud(1,:),Rshroud(2,:),'Color','blue');axis equal
+            plot(Phub(1,:),Phub(2,:),':s','Color','blue');
+            hold on;plot(Rhub(1,:),Rhub(2,:),'Color','black');
+            plot(Pshroud(1,:),Pshroud(2,:),':s','Color','blue');
+            hold on;plot(Rshroud(1,:),Rshroud(2,:),'Color','black');axis equal
+            plot(R_ml(1,:),R_ml(2,:),'-.k');
             
 %             %plot turbomachinery 3d geometry:
 %             subplot(2,2,2)
