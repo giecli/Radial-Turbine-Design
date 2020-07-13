@@ -73,7 +73,7 @@ omega=rpm/60*2*pi;
 Xi = 1;         % rotor inlet/outlet meridional velocity ratio
 tb_r = 0.3e-3;          % rotor blade thickness t_b [m] (uniform)
 r_fbr = 0.1e-3;         %rotor blade root fillet radius
-rho_m = 8497;           %material density Inconel
+
 
 %CONSTRAINTS
 beta_6m_max=-50/180*pi;     % outlet maximum blade angle [°]
@@ -100,8 +100,8 @@ maximum_iterations = 100;    %maximum design iterations before continuation
 % 6 = ROTOR OUTLET
 vPsi = linspace(0.4,1.3,20);
 vPhi = linspace(0.1,0.5,20);
-vPsi = 0.85;
-vPhi = 0.25;
+% vPsi = 0.85;
+% vPhi = 0.25;
 %         
 
 for i=1:length(vPsi)
@@ -727,7 +727,7 @@ for i=1:length(vPsi)
             end
             dh_til = 0.5*W_4^2.*sin(abs(i_4)).^n;
             
-            if strcmp(design,'mixed')==1
+%             if strcmp(design,'mixed')==1
             %Incidence loss model validated for mixed flow turbines in:
             %Romagnoli, A., and R. Martinez-Botas. "Performance
             %prediction of a nozzled and nozzleless mixed-flow turbine
@@ -737,9 +737,9 @@ for i=1:length(vPsi)
                 if i_4 < pi/4
                     dh_til = K_inc*W_4^2*sin(abs(i_4))^2;
                 else   
-                dh_til = K_inc * W_4^2*(0.5+i_4-pi/4)^2;
+                dh_til = K_inc * W_4^2*(0.5+i_4-pi/4)^2
                 end
-            end
+%             end
 % %########################## Friction Losses #########################
             %hydraulic length:
             L_h = L_ms;
@@ -892,8 +892,6 @@ for i=1:length(vPsi)
 %                             kf_high = 0.102*(e_b/r_4)^0.1/Re^(1/5);
 %                             kf = Re(Re<1e5)*kf_low+Re(Re>=1e5)*kf_high;
 %                             dh_tw = kf*(rho_4+rho_6)/2*U_4^3*r_4^2/(2*m_dt*W_6m^2);
-
-
 %-------------------------------------------------------------------------%
 %----------Resulting Losses and  Efficiency-------------------------------%
 %-------------------------------------------------------------------------%
@@ -950,12 +948,6 @@ for i=1:length(vPsi)
             valid_design = 0;
             break;
             end
-            
-%-------------------------------------------------------------------------%
-%----------Mechanical Feasibility-----------------------------------------%
-%-------------------------------------------------------------------------%
-        K_g = 0.3;
-        sigma_r = U_4^2*K_g*rho_m; %material stress 
         end
         
         %save data of current iteration in vectors:
@@ -1060,8 +1052,7 @@ axis equal;
             disp(['eta_s,ts = ' num2str(eta_sts*100) ' %'])
             disp(['eta_s,tt = ' num2str(eta_stt*100) ' %'])
             disp(['CFD: wall spacing for y+ = ' num2str(y_plus) ': ' num2str(delta_s) ' m'])
-            disp(['Estimated maximum stress: ' num2str(sigma_r/10^6) ' MPa'])     
-
+            
 %                     %             %plot Nozzle geometry:
 %                     subplot(2,2,4)
 %                     %plot inner and outer leading edge circles:

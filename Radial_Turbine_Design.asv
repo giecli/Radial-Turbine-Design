@@ -53,7 +53,7 @@ lossmodel = 2;
 %#5 - Rodgers
 %radial or mixed flow turbine?
 design = 'radial'; %'radial' or 'mixed'
-% design = 'mixed';
+design = 'mixed';
 
 %#geometry:
 e_ax = 0.2e-3;     % tip clearance axial [m]
@@ -62,7 +62,7 @@ e = (e_ax+e_rad)/2; %mean tip clearance [m]
 k = 0.03e-3;          % absolute surface roughness k [m]
 k_bl = 0.98;    %boundary layer blockage parameter
 beta_4b = 0/180*pi;    % blade angle at inlet #!!! must be positive!
-cone_angle = 50/180*pi; %cone angle of mixed flow turbine design
+cone_angle = 30/180*pi; %cone angle of mixed flow turbine design
 if beta_4b<0
     error('inlet blade angle is negative!')
 end
@@ -73,7 +73,7 @@ omega=rpm/60*2*pi;
 Xi = 1;         % rotor inlet/outlet meridional velocity ratio
 tb_r = 0.3e-3;          % rotor blade thickness t_b [m] (uniform)
 r_fbr = 0.1e-3;         %rotor blade root fillet radius
-rho_m = 8497;           %material density Inconel
+
 
 %CONSTRAINTS
 beta_6m_max=-50/180*pi;     % outlet maximum blade angle [°]
@@ -655,7 +655,8 @@ for i=1:length(vPsi)
                 %             %Bezier spline parameter from 0 to 1
                 u = linspace(0,1,20);
                 %hub contour:
-                P0 = [0;r_6h]; P1 = [1/3*z_r;r_6h]; P4 = [z_4h;r_4h]; P3 = [P4(1)-(r_4h-r_6h)*1/4/tan(cone_angle);P4(2)-(r_4h-r_6h)*1/4];
+                l
+                P0 = [0;r_6h]; P1 = [1/2*z_r;r_6h]; P4 = [z_4h;r_4h]; P3 = [P4(1)-(r_4h-r_6h)*1/3/tan(cone_angle);P4(2)-(r_4h-r_6h)*1/3];
                 Phelp1 = (P1+P3)/2; Phelp2 = [P4(1); P0(2)]; Phelp3 = (Phelp1+Phelp2)/2;
                 Phub = [P0 P1  P3 P4 ]; Phub = flip(Phub,2);
 
@@ -720,11 +721,7 @@ for i=1:length(vPsi)
             %for on and off-design performance of radial inflow
             %turbomachinery." Applied Thermal Engineering 150 (2019):
             %1066-1077., n should be chosen to be 2 always!   
-            if i_4>0
-                n = 2;
-            else
-                n = 3;
-            end
+            n = 2;
             dh_til = 0.5*W_4^2.*sin(abs(i_4)).^n;
             
             if strcmp(design,'mixed')==1
@@ -737,7 +734,7 @@ for i=1:length(vPsi)
                 if i_4 < pi/4
                     dh_til = K_inc*W_4^2*sin(abs(i_4))^2;
                 else   
-                dh_til = K_inc * W_4^2*(0.5+i_4-pi/4)^2;
+                dh_til = K_inc * W_4^2*(0.5+i_4-pi/4)^2
                 end
             end
 % %########################## Friction Losses #########################
@@ -892,8 +889,6 @@ for i=1:length(vPsi)
 %                             kf_high = 0.102*(e_b/r_4)^0.1/Re^(1/5);
 %                             kf = Re(Re<1e5)*kf_low+Re(Re>=1e5)*kf_high;
 %                             dh_tw = kf*(rho_4+rho_6)/2*U_4^3*r_4^2/(2*m_dt*W_6m^2);
-
-
 %-------------------------------------------------------------------------%
 %----------Resulting Losses and  Efficiency-------------------------------%
 %-------------------------------------------------------------------------%
@@ -950,12 +945,6 @@ for i=1:length(vPsi)
             valid_design = 0;
             break;
             end
-            
-%-------------------------------------------------------------------------%
-%----------Mechanical Feasibility-----------------------------------------%
-%-------------------------------------------------------------------------%
-        K_g = 0.3;
-        sigma_r = U_4^2*K_g*rho_m; %material stress 
         end
         
         %save data of current iteration in vectors:
@@ -1060,8 +1049,7 @@ axis equal;
             disp(['eta_s,ts = ' num2str(eta_sts*100) ' %'])
             disp(['eta_s,tt = ' num2str(eta_stt*100) ' %'])
             disp(['CFD: wall spacing for y+ = ' num2str(y_plus) ': ' num2str(delta_s) ' m'])
-            disp(['Estimated material      
-
+            
 %                     %             %plot Nozzle geometry:
 %                     subplot(2,2,4)
 %                     %plot inner and outer leading edge circles:
