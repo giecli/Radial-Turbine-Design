@@ -53,7 +53,7 @@ lossmodel = 2;
 %#5 - Rodgers
 %radial or mixed flow turbine?
 design = 'radial'; %'radial' or 'mixed'
-design = 'mixed';
+% design = 'mixed';
 
 %#geometry:
 e_ax = 0.2e-3;     % tip clearance axial [m]
@@ -360,6 +360,8 @@ for i=1:length(vPsi)
                 %radius from cone angle: 
                 r_4h =  real(((2*r_4 + b_4*cos(cone_angle))*(2*r_4 - b_4*cos(cone_angle)))^(1/2)/2 - (b_4*cos(cone_angle)));
                 r_4s = r_4h+cos(cone_angle)*b_4;
+                z_4h = 0;
+                z_
             else
                 r_4h = r_4; 
                 r_4s = r_4;
@@ -691,8 +693,13 @@ for i=1:length(vPsi)
             %prediction of a nozzled and nozzleless mixed-flow turbine
             %in steady conditions." International Journal of Mechanical
             %Sciences 53.8 (2011): 557-574. 
-            if beta
-            dh_til = K_inc * 
+                K_inc = 1.4;
+                if i_4 < pi/4
+                    dh_til = K_inc*W_4^2*sin(abs(i_4))^2;
+                else   
+                dh_til = K_inc * W_4^2*(0.5+i_4-pi/4)^2
+                end
+            end
 % %########################## Friction Losses #########################
             %hydraulic length:
             L_h = L_ms;

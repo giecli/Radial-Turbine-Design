@@ -100,8 +100,8 @@ maximum_iterations = 100;    %maximum design iterations before continuation
 % 6 = ROTOR OUTLET
 vPsi = linspace(0.4,1.3,20);
 vPhi = linspace(0.1,0.5,20);
-% vPsi = 1.016;
-% vPhi = 0.2895;
+vPsi = 1.016;
+vPhi = 0.2895;
 %         
 
 for i=1:length(vPsi)
@@ -352,7 +352,7 @@ for i=1:length(vPsi)
             rho_4 = P_4/(R*T_4);
             rho_4t = P_4t/(R*T_4t);
             %calculation of inlet blade height:
-            b_4 = m_dt/(rho_4*C_m4*(2*pi*r_4*k_bl-Z_r*tb_r));
+            b_4 = m_dt/(rho_4*C_m4*(2*pi*r_4*k_bl));
             
             %inlet shroud and hub radius for mixed flow turbine:
             if strcmp(design,'mixed')==1
@@ -360,6 +360,8 @@ for i=1:length(vPsi)
                 %radius from cone angle: 
                 r_4h =  real(((2*r_4 + b_4*cos(cone_angle))*(2*r_4 - b_4*cos(cone_angle)))^(1/2)/2 - (b_4*cos(cone_angle)));
                 r_4s = r_4h+cos(cone_angle)*b_4;
+                z_4h = 0;
+                z_4s = sin(cone_angle)*b_4;
             else
                 r_4h = r_4; 
                 r_4s = r_4;
